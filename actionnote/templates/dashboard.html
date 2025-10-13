@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - ActionNote{% endblock %}
+
+{% block content %}
+<div class="dashboard">
+    <div class="dashboard-header">
+        <h2>📊 Task Dashboard</h2>
+        <a href="{{ url_for('add_note_page') }}" class="btn btn-primary">+ Add Note</a>
+    </div>
+
+    <!-- Statistics Cards -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-icon">📝</div>
+            <div class="stat-info">
+                <h3>{{ stats.total }}</h3>
+                <p>Total Tasks</p>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon">⏳</div>
+            <div class="stat-info">
+                <h3>{{ stats.pending }}</h3>
+                <p>Pending</p>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon">🔄</div>
+            <div class="stat-info">
+                <h3>{{ stats.in_progress }}</h3>
+                <p>In Progress</p>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon">✅</div>
+            <div class="stat-info">
+                <h3>{{ stats.done }}</h3>
+                <p>Completed</p>
+            </div>
+        </div>
+        <div class="stat-card stat-card-alert">
+            <div class="stat-icon">🔥</div>
+            <div class="stat-info">
+                <h3>{{ stats.high_priority }}</h3>
+                <p>High Priority</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tasks List -->
+    <div class="tasks-section">
+        <h3>All Tasks</h3>
+        
+        {% if tasks %}
+        <div class="tasks-list">
+            {% for task in tasks %}
+            <div class="task-card priority-{{ task.priority.lower() }}" data-task-id="{{ task.id }}">
+                <div class="task-header">
+                    <div class="task-priority-badge" style="background-color: {{ task.color }};">
+                        {{ task.priority }}
+                    </div>
+                    <div class="task-status-badge status-{{ task.status.lower().replace(' ', '-') }}">
+                        {{ task.status }}
+                    </div>
+                </div>
+                
+                <div class="task-body">
+                    <h4 class="task-title">{{ task.title }}</h4>
+                    
+                    {% if task.note_text %}
+                    <p class="task-context">
+                        <strong>Context:</strong> {{ task.note_text[:150] }}{% if task.note_text|length > 150 %}...{% endif %}
+                    </p>
+                    {% endif %}
+                    
+                    <div class="task-meta">
+                        <span class="task-meta-item">
+                            📅 <strong>Deadline:</strong> 
+                            {% if task.deadline %}
+                                {{ task.deadline[:10] }}
+                            {% else %}
+                                Not set
+                            {% endif %}
+                        </span>
+                        <span class="task-meta-item">
+                            🕒 <strong>Last Update:</strong> {{ task.last_update[:10] if task.last_update else 'Unknown' }}
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="task-actions">
+                    <select class="status-select" onchange="updateTaskStatus('{{ task.id }}', this.value)">
+                        <option value="Pending" {% if task.status == 'Pending' %}selected{% endif %}>Pending</option>
+                        <option value="In Progress" {% if task.status == 'In Progress' %}selected{% endif %}>In Progress</option>
+                        <option value="Done" {% if task.status == 'Done' %}selected{% endif %}>Done</option>
+                    </select>
+                    <button class="btn btn-sm btn-secondary" onclick="viewTaskDetails('{{ task.id }}')">Details</button>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <div class="empty-icon">📭</div>
+            <h3>No tasks yet!</h3>
+            <p>Add your first note to get started with AI-powered task extraction.</p>
+            <a href="{{ url_for('add_note_page') }}" class="btn btn-primary">Add Note</a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Toast notification -->
+<div id="toast" class="toast"></div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function updateTaskStatus(taskId, newStatus) {
+    fetch(`/api/tasks/${taskId}/status`, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ status: newStatus })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast(`Task status updated to ${newStatus}`, 'success');
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            showToast('Error updating task', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showToast('Error updating task', 'error');
+    });
+}
+
+function viewTaskDetails(taskId) {
+    // Simple alert for MVP - can be enhanced with modal
+    const taskCard = document.querySelector(`[data-task-id="${taskId}"]`);
+    const title = taskCard.querySelector('.task-title').textContent;
+    const context = taskCard.querySelector('.task-context')?.textContent || 'No context';
+    alert(`Task: ${title}\n\n${context}`);
+}
+
+function showToast(message, type = 'info') {
+    const toast = document.getElementById('toast');
+    toast.textContent = message;
+    toast.className = `toast toast-${type} show`;
+    setTimeout(() => {
+        toast.className = 'toast';
+    }, 3000);
+}
+</script>
+{% endblock %}

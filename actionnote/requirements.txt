@@ -1,0 +1,26 @@
+# ActionNote MVP - Python Dependencies
+
+# Web Framework
+Flask==3.0.0
+Werkzeug==3.0.1
+
+# User Authentication
+Flask-Login==0.6.3
+bcrypt==4.1.2
+
+# OpenAI API for task extraction
+openai==1.3.0
+
+# Desktop Notifications
+plyer==2.1.0
+
+# Background Scheduler (optional, using threading instead)
+# APScheduler==3.10.4
+
+# For Windows desktop notifications (optional)
+# win10toast==0.9
+
+# Email functionality (built-in smtplib is used)
+
+# Development dependencies
+python-dotenv==1.0.0

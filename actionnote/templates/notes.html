@@ -1,0 +1,223 @@
+{% extends "base.html" %}
+
+{% block title %}Notes - ActionNote{% endblock %}
+
+{% block content %}
+<div class="notes-page">
+    <div class="page-header">
+        <h2>📝 My Notes</h2>
+        <p>View, edit, and manage all your notes</p>
+    </div>
+
+    <div class="notes-actions">
+        <a href="{{ url_for('add_note_page') }}" class="btn btn-primary">+ Add New Note</a>
+    </div>
+
+    {% if notes %}
+    <div class="notes-table-container">
+        <table class="notes-table">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Note</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for note in notes %}
+                <tr data-note-id="{{ note.id }}">
+                    <td class="note-date">
+                        <span class="date-display">
+                            {{ note.date_created[:10] if note.date_created else 'N/A' }}
+                        </span>
+                        <span class="time-display">
+                            {{ note.date_created[11:16] if note.date_created and note.date_created|length > 10 else '' }}
+                        </span>
+                    </td>
+                    <td class="note-content">
+                        <div class="note-text" id="note-text-{{ note.id }}">
+                            {{ note.text }}
+                        </div>
+                        <textarea class="note-edit-input" id="note-edit-{{ note.id }}" style="display: none;">{{ note.text }}</textarea>
+                    </td>
+                    <td class="note-actions">
+                        <button class="btn-icon btn-edit" onclick="editNote('{{ note.id }}')" title="Edit">
+                            ✏️
+                        </button>
+                        <button class="btn-icon btn-save" id="save-{{ note.id }}" onclick="saveNote('{{ note.id }}')" style="display: none;" title="Save">
+                            ✅
+                        </button>
+                        <button class="btn-icon btn-cancel" id="cancel-{{ note.id }}" onclick="cancelEdit('{{ note.id }}')" style="display: none;" title="Cancel">
+                            ❌
+                        </button>
+                        <button class="btn-icon btn-delete" onclick="confirmDeleteNote('{{ note.id }}')" title="Delete">
+                            🗑️
+                        </button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <div class="empty-icon">📭</div>
+        <h3>No notes yet!</h3>
+        <p>Start taking notes by clicking the button below.</p>
+        <a href="{{ url_for('add_note_page') }}" class="btn btn-primary btn-large">+ Add Your First Note</a>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Toast notification -->
+<div id="toast" class="toast"></div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let editingNoteId = null;
+
+function editNote(noteId) {
+    // Cancel any existing edits
+    if (editingNoteId && editingNoteId !== noteId) {
+        cancelEdit(editingNoteId);
+    }
+    
+    editingNoteId = noteId;
+    
+    // Hide text and show textarea
+    document.getElementById('note-text-' + noteId).style.display = 'none';
+    document.getElementById('note-edit-' + noteId).style.display = 'block';
+    
+    // Show save/cancel buttons, hide edit/delete
+    document.querySelector(`[data-note-id="${noteId}"] .btn-edit`).style.display = 'none';
+    document.querySelector(`[data-note-id="${noteId}"] .btn-delete`).style.display = 'none';
+    document.getElementById('save-' + noteId).style.display = 'inline-block';
+    document.getElementById('cancel-' + noteId).style.display = 'inline-block';
+    
+    // Focus on textarea
+    const textarea = document.getElementById('note-edit-' + noteId);
+    textarea.focus();
+    textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+}
+
+function cancelEdit(noteId) {
+    editingNoteId = null;
+    
+    // Show text and hide textarea
+    document.getElementById('note-text-' + noteId).style.display = 'block';
+    document.getElementById('note-edit-' + noteId).style.display = 'none';
+    
+    // Hide save/cancel buttons, show edit/delete
+    document.querySelector(`[data-note-id="${noteId}"] .btn-edit`).style.display = 'inline-block';
+    document.querySelector(`[data-note-id="${noteId}"] .btn-delete`).style.display = 'inline-block';
+    document.getElementById('save-' + noteId).style.display = 'none';
+    document.getElementById('cancel-' + noteId).style.display = 'none';
+    
+    // Reset textarea to original value
+    const originalText = document.getElementById('note-text-' + noteId).textContent.trim();
+    document.getElementById('note-edit-' + noteId).value = originalText;
+}
+
+function saveNote(noteId) {
+    const newText = document.getElementById('note-edit-' + noteId).value.trim();
+    
+    if (!newText) {
+        showToast('Note cannot be empty', 'error');
+        return;
+    }
+    
+    fetch(`/api/notes/${noteId}`, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ text: newText })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Update the displayed text
+            document.getElementById('note-text-' + noteId).textContent = newText;
+            
+            // Exit edit mode
+            cancelEdit(noteId);
+            
+            showToast('Note updated successfully', 'success');
+        } else {
+            showToast(data.error || 'Error updating note', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showToast('Error updating note', 'error');
+    });
+}
+
+function confirmDeleteNote(noteId) {
+    if (!confirm('Are you sure you want to delete this note? This action cannot be undone.')) {
+        return;
+    }
+    
+    deleteNote(noteId);
+}
+
+function deleteNote(noteId) {
+    fetch(`/api/notes/${noteId}`, {
+        method: 'DELETE',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast('Note deleted successfully', 'success');
+            
+            // Remove the row from the table
+            const row = document.querySelector(`[data-note-id="${noteId}"]`);
+            row.style.opacity = '0';
+            row.style.transform = 'translateX(-20px)';
+            
+            setTimeout(() => {
+                row.remove();
+                
+                // Check if table is now empty
+                const tbody = document.querySelector('.notes-table tbody');
+                if (tbody.children.length === 0) {
+                    location.reload();
+                }
+            }, 300);
+        } else {
+            showToast(data.error || 'Error deleting note', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showToast('Error deleting note', 'error');
+    });
+}
+
+function showToast(message, type = 'info') {
+    const toast = document.getElementById('toast');
+    toast.textContent = message;
+    toast.className = `toast toast-${type} show`;
+    setTimeout(() => {
+        toast.className = 'toast';
+    }, 3000);
+}
+
+// Keyboard shortcuts
+document.addEventListener('keydown', function(e) {
+    // Escape key to cancel edit
+    if (e.key === 'Escape' && editingNoteId) {
+        cancelEdit(editingNoteId);
+    }
+    
+    // Ctrl/Cmd + Enter to save
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && editingNoteId) {
+        saveNote(editingNoteId);
+    }
+});
+</script>
+{% endblock %}

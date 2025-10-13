@@ -1,0 +1,191 @@
+{% extends "base.html" %}
+
+{% block title %}Settings - ActionNote{% endblock %}
+
+{% block content %}
+<div class="settings-page">
+    <div class="page-header">
+        <h2>⚙️ Settings</h2>
+        <p>Configure your ActionNote application</p>
+    </div>
+
+    <div class="settings-container">
+        <!-- Configuration Status -->
+        <div class="settings-section">
+            <h3>📊 System Status</h3>
+            <div class="status-grid">
+                <div class="status-item">
+                    <span class="status-label">OpenAI API</span>
+                    <span class="status-badge {% if config.openai_enabled %}status-enabled{% else %}status-disabled{% endif %}">
+                        {% if config.openai_enabled %}✓ Enabled{% else %}✗ Disabled{% endif %}
+                    </span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">Email Reminders</span>
+                    <span class="status-badge {% if config.email_enabled %}status-enabled{% else %}status-disabled{% endif %}">
+                        {% if config.email_enabled %}✓ Enabled{% else %}✗ Disabled{% endif %}
+                    </span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">Desktop Notifications</span>
+                    <span class="status-badge status-enabled">
+                        ✓ Enabled
+                    </span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">Background Scheduler</span>
+                    <span class="status-badge {% if config.scheduler_enabled %}status-enabled{% else %}status-disabled{% endif %}">
+                        {% if config.scheduler_enabled %}✓ Running{% else %}✗ Stopped{% endif %}
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Environment Setup -->
+        <div class="settings-section">
+            <h3>🔧 Configuration Guide</h3>
+            <div class="config-help">
+                <p>To enable all features, set these environment variables:</p>
+                
+                <div class="env-variable">
+                    <code>OPENAI_API_KEY</code>
+                    <p>Your OpenAI API key for AI-powered task extraction</p>
+                    <small>Current status: {% if config.openai_enabled %}<strong class="text-success">✓ Configured</strong>{% else %}<strong class="text-warning">Not set (using fallback)</strong>{% endif %}</small>
+                </div>
+
+                <div class="env-variable">
+                    <code>GMAIL_ADDRESS</code> & <code>GMAIL_PASSWORD</code>
+                    <p>Gmail credentials for email reminders (use App Password)</p>
+                    <small>Current status: {% if config.email_enabled %}<strong class="text-success">✓ Configured</strong>{% else %}<strong class="text-warning">Not set</strong>{% endif %}</small>
+                </div>
+
+                <div class="env-variable">
+                    <code>NOTIFICATION_EMAIL</code>
+                    <p>Email address to receive task reminders</p>
+                    <small>Current value: {% if config.recipient_email %}<code>{{ config.recipient_email }}</code>{% else %}<strong class="text-warning">Not set</strong>{% endif %}</small>
+                </div>
+
+                <div class="env-variable">
+                    <code>SCHEDULER_ENABLED</code>
+                    <p>Enable/disable background scheduler (true/false)</p>
+                    <small>Current value: <code>{% if config.scheduler_enabled %}true{% else %}false{% endif %}</code></small>
+                </div>
+            </div>
+        </div>
+
+        <!-- Features Info -->
+        <div class="settings-section">
+            <h3>✨ Features</h3>
+            <div class="features-list">
+                <div class="feature-item">
+                    <div class="feature-icon">🤖</div>
+                    <div class="feature-info">
+                        <h4>AI Task Extraction</h4>
+                        <p>Automatically extract actionable tasks from your notes using OpenAI GPT</p>
+                    </div>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-icon">📧</div>
+                    <div class="feature-info">
+                        <h4>Email Reminders</h4>
+                        <p>Receive email notifications for tasks with no progress after 72 hours</p>
+                    </div>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-icon">🔔</div>
+                    <div class="feature-info">
+                        <h4>Desktop Notifications</h4>
+                        <p>Get notified about approaching deadlines and stale tasks</p>
+                    </div>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-icon">🎯</div>
+                    <div class="feature-info">
+                        <h4>Priority Management</h4>
+                        <p>AI-suggested priority levels (High, Medium, Low) for better task organization</p>
+                    </div>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-icon">🗄️</div>
+                    <div class="feature-info">
+                        <h4>Auto-Archive</h4>
+                        <p>Completed tasks older than 7 days are automatically archived</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="settings-section">
+            <h3>⚡ Quick Actions</h3>
+            <div class="actions-grid">
+                <button class="action-btn" onclick="testNotification()">
+                    🔔 Test Desktop Notification
+                </button>
+                <button class="action-btn" onclick="viewLogs()">
+                    📄 View Logs
+                </button>
+                <button class="action-btn" onclick="exportData()">
+                    💾 Export Data
+                </button>
+                <button class="action-btn" onclick="clearCompleted()">
+                    🗑️ Clear Completed Tasks
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Toast notification -->
+<div id="toast" class="toast"></div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function testNotification() {
+    showToast('Testing desktop notifications...', 'info');
+    // In a real implementation, this would trigger a test notification
+    setTimeout(() => {
+        showToast('Check your desktop for a notification!', 'success');
+    }, 1000);
+}
+
+function viewLogs() {
+    showToast('Logs feature coming soon!', 'info');
+}
+
+function exportData() {
+    fetch('/api/notes')
+        .then(response => response.json())
+        .then(data => {
+            const dataStr = JSON.stringify(data, null, 2);
+            const dataBlob = new Blob([dataStr], {type: 'application/json'});
+            const url = URL.createObjectURL(dataBlob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `actionnote-export-${new Date().toISOString().split('T')[0]}.json`;
+            link.click();
+            showToast('Data exported successfully!', 'success');
+        })
+        .catch(error => {
+            showToast('Error exporting data', 'error');
+        });
+}
+
+function clearCompleted() {
+    if (confirm('Are you sure you want to clear all completed tasks? This cannot be undone.')) {
+        showToast('This feature will archive completed tasks', 'info');
+        // Implementation would call API to archive completed tasks
+    }
+}
+
+function showToast(message, type = 'info') {
+    const toast = document.getElementById('toast');
+    toast.textContent = message;
+    toast.className = `toast toast-${type} show`;
+    setTimeout(() => {
+        toast.className = 'toast';
+    }, 3000);
+}
+</script>
+{% endblock %}

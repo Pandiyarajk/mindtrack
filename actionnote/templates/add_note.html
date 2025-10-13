@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+
+{% block title %}Add Note - ActionNote{% endblock %}
+
+{% block content %}
+<div class="add-note-page">
+    <div class="page-header">
+        <h2>✍️ Add New Note</h2>
+        <p>Write your note below and let AI extract actionable tasks automatically</p>
+    </div>
+
+    <div class="note-form-container">
+        <form id="noteForm">
+            <div class="form-group">
+                <label for="noteText">Note Content</label>
+                <textarea 
+                    id="noteText" 
+                    name="text" 
+                    rows="10" 
+                    placeholder="Example: Follow up with Raj by Monday about the project proposal. Need to send him the updated timeline and budget estimates..."
+                    required
+                ></textarea>
+                <small class="form-help">
+                    💡 Tip: Include action verbs (follow up, call, email, send, complete) and deadlines for better task extraction
+                </small>
+            </div>
+
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary btn-large" id="submitBtn">
+                    <span id="btnText">🚀 Extract Tasks & Save</span>
+                    <span id="btnLoader" class="loader" style="display: none;"></span>
+                </button>
+                <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">Cancel</a>
+            </div>
+        </form>
+    </div>
+
+    <!-- Preview Section -->
+    <div id="previewSection" class="preview-section" style="display: none;">
+        <h3>📋 Extracted Tasks Preview</h3>
+        <div id="taskPreview" class="task-preview"></div>
+        <div class="preview-actions">
+            <button class="btn btn-primary" onclick="confirmSave()">✓ Confirm & Save</button>
+            <button class="btn btn-secondary" onclick="hidePreview()">← Edit Note</button>
+        </div>
+    </div>
+
+    <!-- Success Message -->
+    <div id="successMessage" class="success-message" style="display: none;">
+        <div class="success-icon">✅</div>
+        <h3>Note Saved Successfully!</h3>
+        <p id="successText"></p>
+        <div class="success-actions">
+            <a href="{{ url_for('dashboard') }}" class="btn btn-primary">View Dashboard</a>
+            <button class="btn btn-secondary" onclick="resetForm()">Add Another Note</button>
+        </div>
+    </div>
+</div>
+
+<!-- Toast notification -->
+<div id="toast" class="toast"></div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let extractedTasks = [];
+
+document.getElementById('noteForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const noteText = document.getElementById('noteText').value.trim();
+    if (!noteText) {
+        showToast('Please enter note content', 'error');
+        return;
+    }
+
+    // Show loading state
+    const submitBtn = document.getElementById('submitBtn');
+    const btnText = document.getElementById('btnText');
+    const btnLoader = document.getElementById('btnLoader');
+    
+    submitBtn.disabled = true;
+    btnText.style.display = 'none';
+    btnLoader.style.display = 'inline-block';
+
+    try {
+        const response = await fetch('/api/notes', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ text: noteText })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            // Show success message
+            document.querySelector('.note-form-container').style.display = 'none';
+            document.getElementById('successMessage').style.display = 'block';
+            document.getElementById('successText').textContent = 
+                `${data.tasks_created} task(s) extracted and saved!`;
+            
+            showToast('Note and tasks saved successfully!', 'success');
+        } else {
+            showToast(data.error || 'Error saving note', 'error');
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        showToast('Network error. Please try again.', 'error');
+    } finally {
+        submitBtn.disabled = false;
+        btnText.style.display = 'inline';
+        btnLoader.style.display = 'none';
+    }
+});
+
+function resetForm() {
+    document.getElementById('noteForm').reset();
+    document.querySelector('.note-form-container').style.display = 'block';
+    document.getElementById('successMessage').style.display = 'none';
+}
+
+function showToast(message, type = 'info') {
+    const toast = document.getElementById('toast');
+    toast.textContent = message;
+    toast.className = `toast toast-${type} show`;
+    setTimeout(() => {
+        toast.className = 'toast';
+    }, 3000);
+}
+</script>
+{% endblock %}
