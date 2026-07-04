@@ -2,10 +2,13 @@
 Note Handler Module
 Manages notes and tasks in JSON storage
 """
-import json
-import os
+import logging
 from datetime import datetime
 from typing import List, Dict, Optional
+
+from .json_store import JSONStore
+
+logger = logging.getLogger(__name__)
 
 
 class NoteHandler:
@@ -17,55 +20,34 @@ class NoteHandler:
         else:
             self.notes_file = notes_file
             self.archive_file = archive_file
-        self._ensure_files_exist()
-    
-    def _ensure_files_exist(self):
-        """Create data files if they don't exist"""
-        for file_path in [self.notes_file, self.archive_file]:
-            if not os.path.exists(file_path):
-                os.makedirs(os.path.dirname(file_path), exist_ok=True)
-                with open(file_path, 'w') as f:
-                    if 'archive' in file_path:
-                        json.dump({"archived_notes": []}, f)
-                    else:
-                        json.dump({"notes": []}, f)
-    
+
+        self._notes_store = JSONStore(self.notes_file, lambda: {"notes": []})
+        self._archive_store = JSONStore(self.archive_file, lambda: {"archived_notes": []})
+
     def load_notes(self) -> Dict:
         """Load notes from JSON file"""
-        try:
-            with open(self.notes_file, 'r') as f:
-                return json.load(f)
-        except (FileNotFoundError, json.JSONDecodeError):
-            return {"notes": []}
-    
+        return self._notes_store.read()
+
     def save_notes(self, data: Dict) -> bool:
         """Save notes to JSON file"""
-        try:
-            with open(self.notes_file, 'w') as f:
-                json.dump(data, f, indent=2)
-            return True
-        except Exception as e:
-            print(f"Error saving notes: {e}")
-            return False
-    
+        return self._notes_store.write(data)
+
     def add_note(self, text: str, tasks: List[Dict] = None) -> Dict:
         """Add a new note with optional tasks"""
-        data = self.load_notes()
-        
-        # Generate note ID
-        note_id = f"note_{len(data['notes']) + 1:03d}"
-        
-        note = {
-            "id": note_id,
-            "text": text,
-            "date_created": datetime.now().isoformat(),
-            "tasks": tasks or []
-        }
-        
-        data['notes'].append(note)
-        self.save_notes(data)
+        with self._notes_store.modify() as data:
+            note_id = f"note_{len(data['notes']) + 1:03d}"
+
+            note = {
+                "id": note_id,
+                "text": text,
+                "date_created": datetime.now().isoformat(),
+                "tasks": tasks or []
+            }
+
+            data['notes'].append(note)
+
         return note
-    
+
     def get_note(self, note_id: str) -> Optional[Dict]:
         """Get a specific note by ID"""
         data = self.load_notes()
@@ -73,22 +55,22 @@ class NoteHandler:
             if note['id'] == note_id:
                 return note
         return None
-    
+
     def update_note(self, note_id: str, updates: Dict) -> bool:
         """Update a note"""
-        data = self.load_notes()
-        for i, note in enumerate(data['notes']):
-            if note['id'] == note_id:
-                data['notes'][i].update(updates)
-                return self.save_notes(data)
-        return False
-    
+        with self._notes_store.modify() as data:
+            for note in data['notes']:
+                if note['id'] == note_id:
+                    note.update(updates)
+                    return True
+            return False
+
     def delete_note(self, note_id: str) -> bool:
         """Delete a note"""
-        data = self.load_notes()
-        data['notes'] = [n for n in data['notes'] if n['id'] != note_id]
-        return self.save_notes(data)
-    
+        with self._notes_store.modify() as data:
+            data['notes'] = [n for n in data['notes'] if n['id'] != note_id]
+        return True
+
     def get_all_tasks(self) -> List[Dict]:
         """Get all tasks from all notes"""
         data = self.load_notes()
@@ -99,42 +81,37 @@ class NoteHandler:
                 task['note_text'] = note['text']
                 tasks.append(task)
         return tasks
-    
+
     def update_task(self, task_id: str, updates: Dict) -> bool:
         """Update a specific task"""
-        data = self.load_notes()
-        for note in data['notes']:
-            for i, task in enumerate(note.get('tasks', [])):
-                if task['id'] == task_id:
-                    note['tasks'][i].update(updates)
-                    note['tasks'][i]['last_update'] = datetime.now().isoformat()
-                    return self.save_notes(data)
-        return False
-    
+        with self._notes_store.modify() as data:
+            for note in data['notes']:
+                for task in note.get('tasks', []):
+                    if task['id'] == task_id:
+                        task.update(updates)
+                        task['last_update'] = datetime.now().isoformat()
+                        return True
+            return False
+
     def archive_note(self, note_id: str) -> bool:
-        """Archive a note"""
+        """Archive a note: move it from the notes file into the archive file.
+
+        These are two separate JSONStore-guarded writes, not one atomic
+        transaction -- a crash between them could leave a note in both (or
+        neither) file. That's a pre-existing limitation, unchanged here.
+        """
         note = self.get_note(note_id)
         if not note:
             return False
-        
-        # Load archive
-        try:
-            with open(self.archive_file, 'r') as f:
-                archive = json.load(f)
-        except:
-            archive = {"archived_notes": []}
-        
-        # Add to archive
+
+        note = dict(note)
         note['archived_date'] = datetime.now().isoformat()
-        archive['archived_notes'].append(note)
-        
-        # Save archive
-        with open(self.archive_file, 'w') as f:
-            json.dump(archive, f, indent=2)
-        
-        # Delete from notes
+
+        with self._archive_store.modify() as archive:
+            archive['archived_notes'].append(note)
+
         return self.delete_note(note_id)
-    
+
     def get_task(self, task_id: str) -> Optional[Dict]:
         """Get a specific task by ID"""
         tasks = self.get_all_tasks()

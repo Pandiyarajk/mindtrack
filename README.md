@@ -187,7 +187,7 @@ actionnote/
 1. **Register an Account**
    - Visit http://localhost:5000
    - Click "Sign up"
-   - Fill in your full name, username, email, and password (min 6 characters)
+   - Fill in your full name, username, email, and password (min 8 characters, with a letter and a number)
    - Submit the registration form
 
 2. **Log In**
