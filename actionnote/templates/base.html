@@ -10,6 +10,21 @@
     {% block extra_css %}{% endblock %}
 </head>
 <body>
+    <script>
+        // Initialize theme immediately to prevent flash
+        (function() {
+            const stored = localStorage.getItem('theme-mode');
+            const systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            const isDark = stored ? stored === 'dark' : systemDark;
+            
+            if (isDark) {
+                document.documentElement.setAttribute('data-theme', 'dark');
+            } else {
+                document.documentElement.setAttribute('data-theme', 'light');
+            }
+        })();
+    </script>
+
     <nav class="navbar">
         <div class="container">
             <div class="nav-brand">
@@ -22,6 +37,7 @@
                 <li><a href="{{ url_for('add_note_page') }}" class="{% if request.endpoint == 'add_note_page' %}active{% endif %}">Add Note</a></li>
                 <li><a href="{{ url_for('settings') }}" class="{% if request.endpoint == 'settings' %}active{% endif %}">Settings</a></li>
                 <li class="nav-divider"></li>
+                <li><button id="theme-toggle" class="theme-toggle" title="Toggle Dark/Light Mode" aria-label="Toggle Dark/Light Mode">🌙</button></li>
                 <li><a href="{{ url_for('profile') }}" class="{% if request.endpoint == 'profile' %}active{% endif %}">👤 {{ current_user.username }}</a></li>
                 <li><a href="{{ url_for('logout') }}" class="logout-link">Logout</a></li>
             </ul>
@@ -55,6 +71,30 @@
             }
             return originalFetch(url, options);
         };
+    })();
+
+    // Theme toggle functionality
+    (function() {
+        const themeToggle = document.getElementById('theme-toggle');
+        
+        function setTheme(isDark) {
+            const theme = isDark ? 'dark' : 'light';
+            document.documentElement.setAttribute('data-theme', theme);
+            localStorage.setItem('theme-mode', theme);
+            themeToggle.textContent = isDark ? '☀️' : '🌙';
+        }
+        
+        function toggleTheme() {
+            const current = document.documentElement.getAttribute('data-theme');
+            const isDark = current === 'dark';
+            setTheme(!isDark);
+        }
+        
+        // Initialize button state
+        const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+        themeToggle.textContent = isDark ? '☀️' : '🌙';
+        
+        themeToggle.addEventListener('click', toggleTheme);
     })();
     </script>
     <script src="{{ url_for('static', filename='script.js') }}"></script>

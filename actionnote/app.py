@@ -5,6 +5,7 @@ A note-taking app with AI-powered task extraction and management
 import logging
 import os
 import secrets
+from datetime import datetime
 
 from flask import Flask, render_template, request, jsonify, redirect, url_for
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
@@ -333,6 +334,43 @@ def get_tasks():
     return jsonify({'tasks': tasks})
 
 
+@app.route('/api/tasks/manual', methods=['POST'])
+@login_required
+def create_manual_task():
+    """API: Create a manual task without requiring a note"""
+    note_handler = get_user_note_handler()
+    data = request.get_json()
+    title = data.get('title', '').strip()
+    priority = data.get('priority', 'Medium')
+    deadline = data.get('deadline')
+    description = data.get('description', '').strip()
+
+    if not title:
+        return jsonify({'error': 'Task title is required'}), 400
+
+    if priority not in ['High', 'Medium', 'Low']:
+        return jsonify({'error': 'Invalid priority level'}), 400
+
+    # Create task object
+    task = {
+        'id': f"task_{datetime.now().strftime('%Y%m%d%H%M%S')}",
+        'title': title,
+        'priority': priority,
+        'status': 'Pending',
+        'deadline': deadline,
+        'color': {'High': 'red', 'Medium': 'orange', 'Low': 'green'}.get(priority, 'orange'),
+        'last_update': datetime.now().isoformat(),
+        'note_text': description if description else None
+    }
+
+    # Save task to note handler
+    try:
+        note_handler.add_task(task)
+        return jsonify({'success': True, 'task': task})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/api/tasks/<task_id>', methods=['PUT'])
 @login_required
 def update_task(task_id):
@@ -449,10 +487,10 @@ if __name__ == '__main__':
         print("=" * 50)
         print("ActionNote MVP - Starting with User Authentication...")
         print("=" * 50)
-        print(f"OpenAI API: {'✓ Enabled' if task_extractor.api_key else '✗ Disabled (using fallback)'}")
-        print(f"Email: {'✓ Enabled' if emailer.enabled else '✗ Disabled'}")
-        print(f"Desktop Notifications: {'✓ Enabled' if notifier.PLYER_AVAILABLE else '✗ Disabled'}")
-        print(f"Scheduler: {'✓ Enabled' if scheduler else '✗ Disabled'}")
+        print(f"OpenAI API: {'[YES] Enabled' if task_extractor.api_key else '[NO] Disabled (using fallback)'}")
+        print(f"Email: {'[YES] Enabled' if emailer.enabled else '[NO] Disabled'}")
+        print(f"Desktop Notifications: {'[YES] Enabled' if notifier.PLYER_AVAILABLE else '[NO] Disabled'}")
+        print(f"Scheduler: {'[YES] Enabled' if scheduler else '[NO] Disabled'}")
         print("=" * 50)
 
         flask_host = os.getenv('FLASK_HOST', '127.0.0.1')

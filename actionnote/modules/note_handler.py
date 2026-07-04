@@ -119,3 +119,30 @@ class NoteHandler:
             if task['id'] == task_id:
                 return task
         return None
+
+    def add_task(self, task: Dict) -> bool:
+        """Add a standalone task (not associated with a specific note)"""
+        with self._notes_store.modify() as data:
+            # Create a standalone task container note
+            task_container_id = f"task_container_{task['id']}"
+            
+            # Check if container already exists
+            container = None
+            for note in data['notes']:
+                if note.get('id') == task_container_id:
+                    container = note
+                    break
+            
+            if not container:
+                # Create new task container note
+                container = {
+                    "id": task_container_id,
+                    "text": f"[AUTO] Task: {task.get('title', 'Untitled')}",
+                    "date_created": datetime.now().isoformat(),
+                    "tasks": []
+                }
+                data['notes'].append(container)
+            
+            # Add task to container
+            container['tasks'].append(task)
+            return True

@@ -6,7 +6,10 @@
 <div class="dashboard">
     <div class="dashboard-header">
         <h2>📊 Task Dashboard</h2>
-        <a href="{{ url_for('add_note_page') }}" class="btn btn-primary">+ Add Note</a>
+        <div class="header-actions">
+            <a href="{{ url_for('add_note_page') }}" class="btn btn-primary">+ Add Note</a>
+            <button onclick="openCreateTaskModal()" class="btn btn-success">+ Create Task</button>
+        </div>
     </div>
 
     <!-- Statistics Cards -->
@@ -111,8 +114,161 @@
     </div>
 </div>
 
+<!-- Create Task Modal -->
+<div id="createTaskModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Create New Task</h3>
+            <button class="modal-close" onclick="closeCreateTaskModal()">&times;</button>
+        </div>
+        <form id="createTaskForm" onsubmit="submitCreateTask(event)">
+            <div class="form-group">
+                <label for="taskTitle">Task Title *</label>
+                <input type="text" id="taskTitle" required placeholder="Enter task title">
+            </div>
+            
+            <div class="form-group">
+                <label for="taskPriority">Priority *</label>
+                <select id="taskPriority" required>
+                    <option value="Medium">Medium</option>
+                    <option value="High">High</option>
+                    <option value="Low">Low</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="taskDeadline">Deadline *</label>
+                <input type="date" id="taskDeadline" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="taskDescription">Description</label>
+                <textarea id="taskDescription" placeholder="Add optional description..." rows="4"></textarea>
+            </div>
+            
+            <div class="form-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeCreateTaskModal()">Cancel</button>
+                <button type="submit" class="btn btn-primary">Create Task</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <!-- Toast notification -->
 <div id="toast" class="toast"></div>
+
+<style>
+.header-actions {
+    display: flex;
+    gap: 10px;
+}
+
+/* Override main modal styles for dashboard */
+#createTaskModal {
+    display: none !important;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    background-color: rgba(0, 0, 0, 0.5) !important;
+    align-items: center !important;
+    justify-content: center !important;
+    z-index: 1000 !important;
+    opacity: 0 !important;
+    visibility: hidden !important;
+    transition: all 0.2s ease-out !important;
+}
+
+#createTaskModal.show {
+    display: flex !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+}
+
+.modal-content {
+    background: var(--bg-primary);
+    padding: 30px;
+    border-radius: 8px;
+    max-width: 500px;
+    width: 90%;
+    box-shadow: var(--shadow-xl);
+    animation: slideUp 0.3s ease-out;
+}
+
+@keyframes slideUp {
+    from {
+        transform: translateY(30px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    border-bottom: 1px solid var(--border-light);
+    padding-bottom: 15px;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    color: var(--text-secondary);
+}
+
+.form-group {
+    margin-bottom: 15px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 14px;
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+}
+
+.form-group textarea {
+    resize: vertical;
+}
+
+.form-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    margin-top: 20px;
+    padding-top: 15px;
+    border-top: 1px solid var(--border-light);
+}
+
+.btn-success {
+    background-color: #28a745;
+}
+
+.btn-success:hover {
+    background-color: #218838;
+}
+</style>
 {% endblock %}
 
 {% block extra_js %}
@@ -141,7 +297,6 @@ function updateTaskStatus(taskId, newStatus) {
 }
 
 function viewTaskDetails(taskId) {
-    // Simple alert for MVP - can be enhanced with modal
     const taskCard = document.querySelector(`[data-task-id="${taskId}"]`);
     const title = taskCard.querySelector('.task-title').textContent;
     const context = taskCard.querySelector('.task-context')?.textContent || 'No context';
@@ -155,6 +310,79 @@ function showToast(message, type = 'info') {
     setTimeout(() => {
         toast.className = 'toast';
     }, 3000);
+}
+
+function openCreateTaskModal() {
+    console.log('openCreateTaskModal called');
+    const modal = document.getElementById('createTaskModal');
+    console.log('Modal element:', modal);
+    if (!modal) {
+        console.error('Modal element not found!');
+        alert('Error: Modal not found');
+        return;
+    }
+    modal.classList.add('show');
+    modal.style.display = 'flex';
+    modal.style.opacity = '1';
+    modal.style.visibility = 'visible';
+    // Set today's date as default
+    const today = new Date().toISOString().split('T')[0];
+    const deadline = document.getElementById('taskDeadline');
+    if (deadline) {
+        deadline.value = today;
+    }
+    console.log('Modal opened successfully');
+}
+
+function closeCreateTaskModal() {
+    const modal = document.getElementById('createTaskModal');
+    modal.classList.remove('show');
+    modal.style.display = 'none';
+    document.getElementById('createTaskForm').reset();
+}
+
+function submitCreateTask(event) {
+    event.preventDefault();
+    
+    const title = document.getElementById('taskTitle').value;
+    const priority = document.getElementById('taskPriority').value;
+    const deadline = document.getElementById('taskDeadline').value;
+    const description = document.getElementById('taskDescription').value;
+    
+    fetch('/api/tasks/manual', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            title: title,
+            priority: priority,
+            deadline: deadline + 'T18:00:00',
+            description: description
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast('Task created successfully', 'success');
+            closeCreateTaskModal();
+            setTimeout(() => location.reload(), 1500);
+        } else {
+            showToast(data.error || 'Error creating task', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showToast('Error creating task', 'error');
+    });
+}
+
+// Close modal when clicking outside
+window.onclick = function(event) {
+    const modal = document.getElementById('createTaskModal');
+    if (event.target === modal) {
+        closeCreateTaskModal();
+    }
 }
 </script>
 {% endblock %}

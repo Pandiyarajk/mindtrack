@@ -1,24 +1,14 @@
 @echo off
-REM ActionNote MVP - Quick Start Script for Windows
+REM ActionNote MVP - Quick Start Script for Windows (Local Python)
 
 echo ===================================
 echo    ActionNote MVP - Starting...
 echo ===================================
 echo.
 
-REM Check if virtual environment exists
-if not exist "venv" (
-    echo Creating virtual environment...
-    python -m venv venv
-)
-
-REM Activate virtual environment
-echo Activating virtual environment...
-call venv\Scripts\activate.bat
-
-REM Install dependencies
+REM Install dependencies using local Python
 echo Installing dependencies...
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
 
 REM Check if .env exists
 if not exist ".env" (

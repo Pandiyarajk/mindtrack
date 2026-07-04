@@ -74,46 +74,80 @@ Return ONLY a valid JSON array with no additional text. Example format:
 
     def _simple_extract(self, note_text: str) -> List[Dict]:
         """
-        Simple fallback task extraction without AI
-        Looks for action words and creates basic tasks
+        Improved fallback task extraction without AI
+        Looks for action words, patterns, and creates contextual tasks
         """
-        action_words = ['follow up', 'call', 'email', 'send', 'complete', 'finish',
-                       'review', 'prepare', 'schedule', 'meet', 'contact', 'submit']
+        action_words = {
+            'high_action': ['must', 'need to', 'have to', 'should', 'do', 'make', 'create', 'build', 'fix', 'resolve'],
+            'communication': ['follow up', 'call', 'email', 'contact', 'reach out', 'message', 'notify', 'text', 'reply', 'respond'],
+            'review': ['review', 'check', 'verify', 'audit', 'inspect', 'examine', 'approve', 'validate', 'test'],
+            'planning': ['schedule', 'plan', 'organize', 'arrange', 'prepare', 'setup', 'configure', 'install'],
+            'execution': ['complete', 'finish', 'execute', 'implement', 'deploy', 'launch', 'submit', 'publish', 'release'],
+            'documentation': ['document', 'write', 'update', 'record', 'log', 'note', 'draft'],
+            'research': ['research', 'investigate', 'explore', 'analyze', 'study', 'learn']
+        }
 
         tasks = []
         lower_text = note_text.lower()
 
         # Check if note contains action words
-        has_action = any(word in lower_text for word in action_words)
+        all_action_words = []
+        for category, words in action_words.items():
+            all_action_words.extend(words)
+        
+        has_action = any(word in lower_text for word in all_action_words)
 
         if has_action:
-            # Create a single task from the note
-            task_id = f"task_{datetime.now().strftime('%Y%m%d%H%M%S')}_0"
-
-            # Default deadline: 3 days from now
-            deadline = (datetime.now() + timedelta(days=3)).isoformat()
-
-            # Determine priority based on keywords
-            priority = "Medium"
-            color = "orange"
-
-            if any(word in lower_text for word in ['urgent', 'asap', 'immediately', 'critical']):
-                priority = "High"
-                color = "red"
-            elif any(word in lower_text for word in ['when possible', 'eventually', 'someday']):
-                priority = "Low"
-                color = "green"
-
-            task = {
-                "id": task_id,
-                "title": note_text[:100],  # Use first 100 chars as title
-                "priority": priority,
-                "status": "Pending",
-                "deadline": deadline,
-                "color": color,
-                "last_update": datetime.now().isoformat()
-            }
-            tasks.append(task)
+            # Split into sentences to extract more specific tasks
+            sentences = [s.strip() for s in note_text.split('.') if s.strip()]
+            
+            task_count = 0
+            for sentence in sentences:
+                lower_sentence = sentence.lower()
+                
+                # Check if sentence contains action words
+                if any(word in lower_sentence for word in all_action_words):
+                    # Create task from this sentence
+                    task_id = f"task_{datetime.now().strftime('%Y%m%d%H%M%S')}_{task_count}"
+                    
+                    # Determine deadline based on keywords
+                    deadline_days = 3  # default
+                    if any(word in lower_sentence for word in ['today', 'tonight']):
+                        deadline_days = 0
+                    elif any(word in lower_sentence for word in ['tomorrow', 'next day']):
+                        deadline_days = 1
+                    elif any(word in lower_sentence for word in ['this week', 'asap']):
+                        deadline_days = 2
+                    elif any(word in lower_sentence for word in ['next week']):
+                        deadline_days = 7
+                    
+                    deadline = (datetime.now() + timedelta(days=deadline_days)).isoformat()
+                    
+                    # Determine priority based on keywords
+                    priority = "Medium"
+                    color = "orange"
+                    
+                    if any(word in lower_sentence for word in ['urgent', 'asap', 'immediately', 'critical', 'emergency', 'important', 'must', 'high priority']):
+                        priority = "High"
+                        color = "red"
+                    elif any(word in lower_sentence for word in ['when possible', 'eventually', 'someday', 'low priority', 'optional']):
+                        priority = "Low"
+                        color = "green"
+                    
+                    # Use first 100 chars of sentence as title, or full sentence if shorter
+                    title = sentence[:100] if len(sentence) > 100 else sentence
+                    
+                    task = {
+                        "id": task_id,
+                        "title": title,
+                        "priority": priority,
+                        "status": "Pending",
+                        "deadline": deadline,
+                        "color": color,
+                        "last_update": datetime.now().isoformat()
+                    }
+                    tasks.append(task)
+                    task_count += 1
 
         return tasks
 
