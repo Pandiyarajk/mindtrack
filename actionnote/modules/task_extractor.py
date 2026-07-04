@@ -4,6 +4,7 @@ Uses OpenAI API to extract action items from notes
 """
 import os
 import json
+import re
 from datetime import datetime, timedelta
 from typing import List, Dict, Optional
 from openai import OpenAI
@@ -72,6 +73,16 @@ Return ONLY a valid JSON array with no additional text. Example format:
             # Fallback to simple extraction
             return self._simple_extract(note_text)
 
+    @staticmethod
+    def _contains_keyword(text: str, keywords: List[str]) -> bool:
+        """
+        Check if text contains any keyword starting at a word boundary.
+        Anchoring only the left edge allows intentional prefix matches (e.g. 'urgent'
+        matching 'urgently') while still preventing false positives from a keyword
+        appearing mid-word (e.g. 'do' inside 'random').
+        """
+        return any(re.search(r'\b' + re.escape(word), text) for word in keywords)
+
     def _simple_extract(self, note_text: str) -> List[Dict]:
         """
         Improved fallback task extraction without AI
@@ -95,7 +106,7 @@ Return ONLY a valid JSON array with no additional text. Example format:
         for category, words in action_words.items():
             all_action_words.extend(words)
 
-        has_action = any(word in lower_text for word in all_action_words)
+        has_action = self._contains_keyword(lower_text, all_action_words)
 
         if has_action:
             # Split into sentences to extract more specific tasks
@@ -106,19 +117,19 @@ Return ONLY a valid JSON array with no additional text. Example format:
                 lower_sentence = sentence.lower()
 
                 # Check if sentence contains action words
-                if any(word in lower_sentence for word in all_action_words):
+                if self._contains_keyword(lower_sentence, all_action_words):
                     # Create task from this sentence
                     task_id = f"task_{datetime.now().strftime('%Y%m%d%H%M%S')}_{task_count}"
 
                     # Determine deadline based on keywords
                     deadline_days = 3  # default
-                    if any(word in lower_sentence for word in ['today', 'tonight']):
+                    if self._contains_keyword(lower_sentence, ['today', 'tonight']):
                         deadline_days = 0
-                    elif any(word in lower_sentence for word in ['tomorrow', 'next day']):
+                    elif self._contains_keyword(lower_sentence, ['tomorrow', 'next day']):
                         deadline_days = 1
-                    elif any(word in lower_sentence for word in ['this week', 'asap']):
+                    elif self._contains_keyword(lower_sentence, ['this week', 'asap']):
                         deadline_days = 2
-                    elif any(word in lower_sentence for word in ['next week']):
+                    elif self._contains_keyword(lower_sentence, ['next week']):
                         deadline_days = 7
 
                     deadline = (datetime.now() + timedelta(days=deadline_days)).isoformat()
@@ -127,10 +138,10 @@ Return ONLY a valid JSON array with no additional text. Example format:
                     priority = "Medium"
                     color = "orange"
 
-                    if any(word in lower_sentence for word in ['urgent', 'asap', 'immediately', 'critical', 'emergency', 'important', 'must', 'high priority']):
+                    if self._contains_keyword(lower_sentence, ['urgent', 'asap', 'immediately', 'critical', 'emergency', 'important', 'must', 'high priority']):
                         priority = "High"
                         color = "red"
-                    elif any(word in lower_sentence for word in ['when possible', 'eventually', 'someday', 'low priority', 'optional']):
+                    elif self._contains_keyword(lower_sentence, ['when possible', 'eventually', 'someday', 'low priority', 'optional']):
                         priority = "Low"
                         color = "green"
 
@@ -192,9 +203,9 @@ Colors: red for High, orange for Medium, green for Low
         """Simple priority suggestion without AI"""
         lower_title = task_title.lower()
 
-        if any(word in lower_title for word in ['urgent', 'asap', 'critical', 'immediately']):
+        if self._contains_keyword(lower_title, ['urgent', 'asap', 'critical', 'immediately']):
             return {"priority": "High", "color": "red"}
-        elif any(word in lower_title for word in ['when possible', 'eventually', 'someday']):
+        elif self._contains_keyword(lower_title, ['when possible', 'eventually', 'someday']):
             return {"priority": "Low", "color": "green"}
         else:
             return {"priority": "Medium", "color": "orange"}
