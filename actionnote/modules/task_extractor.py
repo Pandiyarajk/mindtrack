@@ -94,22 +94,22 @@ Return ONLY a valid JSON array with no additional text. Example format:
         all_action_words = []
         for category, words in action_words.items():
             all_action_words.extend(words)
-        
+
         has_action = any(word in lower_text for word in all_action_words)
 
         if has_action:
             # Split into sentences to extract more specific tasks
             sentences = [s.strip() for s in note_text.split('.') if s.strip()]
-            
+
             task_count = 0
             for sentence in sentences:
                 lower_sentence = sentence.lower()
-                
+
                 # Check if sentence contains action words
                 if any(word in lower_sentence for word in all_action_words):
                     # Create task from this sentence
                     task_id = f"task_{datetime.now().strftime('%Y%m%d%H%M%S')}_{task_count}"
-                    
+
                     # Determine deadline based on keywords
                     deadline_days = 3  # default
                     if any(word in lower_sentence for word in ['today', 'tonight']):
@@ -120,23 +120,23 @@ Return ONLY a valid JSON array with no additional text. Example format:
                         deadline_days = 2
                     elif any(word in lower_sentence for word in ['next week']):
                         deadline_days = 7
-                    
+
                     deadline = (datetime.now() + timedelta(days=deadline_days)).isoformat()
-                    
+
                     # Determine priority based on keywords
                     priority = "Medium"
                     color = "orange"
-                    
+
                     if any(word in lower_sentence for word in ['urgent', 'asap', 'immediately', 'critical', 'emergency', 'important', 'must', 'high priority']):
                         priority = "High"
                         color = "red"
                     elif any(word in lower_sentence for word in ['when possible', 'eventually', 'someday', 'low priority', 'optional']):
                         priority = "Low"
                         color = "green"
-                    
+
                     # Use first 100 chars of sentence as title, or full sentence if shorter
                     title = sentence[:100] if len(sentence) > 100 else sentence
-                    
+
                     task = {
                         "id": task_id,
                         "title": title,

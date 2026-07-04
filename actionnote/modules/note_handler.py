@@ -125,14 +125,14 @@ class NoteHandler:
         with self._notes_store.modify() as data:
             # Create a standalone task container note
             task_container_id = f"task_container_{task['id']}"
-            
+
             # Check if container already exists
             container = None
             for note in data['notes']:
                 if note.get('id') == task_container_id:
                     container = note
                     break
-            
+
             if not container:
                 # Create new task container note
                 container = {
@@ -142,7 +142,7 @@ class NoteHandler:
                     "tasks": []
                 }
                 data['notes'].append(container)
-            
+
             # Add task to container
             container['tasks'].append(task)
             return True
