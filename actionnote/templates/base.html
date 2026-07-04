@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}ActionNote{% endblock %}</title>
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     {% block extra_css %}{% endblock %}
@@ -39,6 +40,23 @@
         </div>
     </footer>
 
+    <script>
+    (function() {
+        // Attach the CSRF token to every non-GET fetch() call so both
+        // script.js's apiRequest() helper and the inline fetch() calls in
+        // individual templates are covered without per-call-site changes.
+        var token = document.querySelector('meta[name="csrf-token"]').content;
+        var originalFetch = window.fetch;
+        window.fetch = function(url, options) {
+            options = options || {};
+            var method = (options.method || 'GET').toUpperCase();
+            if (['GET', 'HEAD', 'OPTIONS'].indexOf(method) === -1) {
+                options.headers = Object.assign({}, options.headers, {'X-CSRFToken': token});
+            }
+            return originalFetch(url, options);
+        };
+    })();
+    </script>
     <script src="{{ url_for('static', filename='script.js') }}"></script>
     {% block extra_js %}{% endblock %}
 </body>
